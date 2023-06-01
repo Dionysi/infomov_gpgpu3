@@ -300,22 +300,23 @@ void clContext::GetPlatformAndDevice() {
 
 	(clGetPlatformIDs(0, NULL, &platformCount), "unable to retrieve platforms");
 
-	cl_platform_id* platforms = (cl_platform_id*)malloc(platformCount * sizeof(cl_platform_id*));
+	cl_platform_id* platforms = new cl_platform_id[platformCount];
 	CL_ERROR(clGetPlatformIDs(platformCount, platforms, NULL), "unable to retrieve platforms");
 
 	char pInfo[512];
 	// Retrieve the first Nvidia or AMD GPU that we can find.
 	for (cl_uint i = 0; i < platformCount; i++) {
 		if (CL_ERROR(clGetPlatformInfo(platforms[i], CL_PLATFORM_VENDOR, 512, &pInfo, NULL), "unable to retrieve platform info"))
+			// Remove this line if you do not have a dedicated NVIDIA or AMD GPU.
 			if (strstr(pInfo, "NVIDIA") || strstr(pInfo, "AMD"))
 				if (CL_ERROR(clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_GPU, 1, &m_DeviceID, NULL), "unable to retrieve devices")) {
 					m_PlatformID = platforms[i];
-					free(platforms);
+					delete[] platforms;
 					return;
 				}
 	}
 
-	free(platforms);
+	delete[] platforms;
 
 	FATAL_ERROR("Unable to find a suitable GPU.");
 }

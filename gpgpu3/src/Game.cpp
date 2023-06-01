@@ -3,8 +3,9 @@
 
 #include <glm/gtx/norm.hpp> // glm::length2(...)
 
-#define RESTITUTION 0.92f
+#define RESTITUTION 0.9f
 #define SPEED_MOD 100.0f
+#define MAX_SPEED 256.0f
 
 void Game::UpdateParticleGrid()
 {
@@ -185,6 +186,9 @@ void Game::HandleUserInput(float dt)
 					// Apply forces based on reciprocal distance.
 					float force = 25.0f * 128.0f * 128.0f / sqrdlength;
 					p.velocity += force * diff * dt;
+
+					float speed = glm::length(p.velocity);
+					if (speed > MAX_SPEED) p.velocity = (p.velocity / speed) * MAX_SPEED;
 				}
 			}
 
@@ -224,6 +228,10 @@ void Game::ResolveCollision(Particle& p1, Particle& p2)
 	p1.velocity -= (1.0f / p1.mass) * impulse;
 	p2.velocity += (1.0f / p2.mass) * impulse;
 
+	// Cap velocity at a maximum speed.
+	float p1speed = glm::length(p1.velocity);
+	float p2speed = glm::length(p2.velocity);
+
 	// Calculate overlap
 	float overlap = (p1.radius + p2.radius) - glm::length(p1.pos - p2.pos);
 
@@ -243,6 +251,10 @@ void Game::DrawParticle(Particle& p)
 	int xStart = glm::max(cx - radius, 0);
 	int xEnd = glm::min((int)Application::RenderWidth() - 1, cx + radius);
 
+	// Particle speed.
+	glm::vec2 direction = glm::normalize(p.velocity);
+	uint color = 0x000000FF | ((uint)(direction.x * 127.0f + 128.0f) << 24) | ((uint)(direction.y * 127.0f + 128.0f) << 16);
+
 	// Iterate over pixels and draw the circle.
 	for (int y = yStart; y < yEnd; y++)
 		for (int x = xStart; x < xEnd; x++)
@@ -250,7 +262,7 @@ void Game::DrawParticle(Particle& p)
 			// Check if the current pixel is within the circle.
 			int dx = x - cx, dy = y - cy;
 
-			if (dx * dx + dy * dy < radSquared) Application::Screen()->PlotPixel(p.color, x, y);
+			if (dx * dx + dy * dy < radSquared) Application::Screen()->PlotPixel(color, x, y);
 		}
 }
 
@@ -270,9 +282,9 @@ Game::Game()
 
 		glm::vec2 pos = glm::vec2(rand() % Application::RenderWidth(), rand() % Application::RenderHeight());
 		glm::vec2 vel = glm::vec2((float)rand() * rrandmax - 0.5f, (float)rand() * rrandmax - 0.5f) * SPEED_MOD * 2.0f;
-		float radius = 2.0f + 3.0f * (float)rand() * rrandmax;
+		float radius = 6.0f + 3.0f * (float)rand() * rrandmax;
 		float mass = radius * 4.0f;
-		uint color = 0xFFFFFFFF;// (rand() % 255 << 24) | (rand() % 255 << 16) | (rand() % 255 << 8) | 255u;
+		uint color = (rand() % 255 << 24) | (rand() % 255 << 16) | (rand() % 255 << 8) | 255u;
 
 		m_Particles[i] = { pos, vel, mass, radius, color };
 	}

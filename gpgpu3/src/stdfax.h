@@ -443,7 +443,8 @@ public:
 private:
 	cl_mem m_Buffer = 0;
 	/*
-	* Buffer size in bytes. */
+	* Buffer size in bytes. 
+	*/
 	size_t m_BufferSize;
 
 	/* Image descriptor if the buffer is an OpenCL image.*/
