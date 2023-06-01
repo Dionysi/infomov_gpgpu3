@@ -31,6 +31,19 @@ class Game
 private:
 
 	/*
+	* OpenCL context used for any gpgpu operations.
+	*/
+	clContext* m_clContext = nullptr;
+	/*
+	* Contains opencl code from which we can create our kernels.
+	*/
+	clProgram* m_clProgram = nullptr;
+	/*
+	* Queue for executing kernels.
+	*/
+	clCommandQueue* m_clQueue = nullptr;
+
+	/*
 	* Average time it takes to process a frame.
 	* For debugging purpose only.
 	*/

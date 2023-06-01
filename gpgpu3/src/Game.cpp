@@ -269,6 +269,11 @@ void Game::DrawParticle(Particle& p)
 
 Game::Game()
 {
+	// Initialize opencl.
+	m_clContext = new clContext(true);
+	m_clProgram = new clProgram(m_clContext, "kernels.cl");
+	m_clQueue = new clCommandQueue(m_clContext, false, true);
+
 	// Resize the window.
 	Application::SetWindowSize(1024, 1024, true);
 
@@ -293,7 +298,8 @@ Game::Game()
 
 Game::~Game()
 {
-	// Perform any saving operations and free allocated memory.
+
+	delete m_clContext;
 }
 
 void Game::Tick(float dt)
