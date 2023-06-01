@@ -309,13 +309,13 @@ void Game::Tick(float dt)
 	// Apply forces based on user input.
 	HandleUserInput(dt);
 
-	// Update particle positions.
-	for (int i = 0; i < N_PARTICLES; i++) m_Particles[i].pos += m_Particles[i].velocity * dt;
-
-	// Check collision with screen boundaries.
+	// Update positions and heck collision with screen boundaries.
 	for (int i = 0; i < N_PARTICLES; i++)
 	{
 		Particle& p = m_Particles[i];
+
+		// Update particle position.
+		p.pos += p.velocity * dt;
 
 		// Check if outside of boundary.
 		if (p.pos.x - p.radius < 0.0f) p.pos.x = p.radius, p.velocity.x *= -1.0f;
