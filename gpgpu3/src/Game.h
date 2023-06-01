@@ -44,6 +44,15 @@ private:
 	clCommandQueue* m_clQueue = nullptr;
 
 	/*
+	* Kernel for updating positions.
+	*/
+	clKernel* m_clPosKernel = nullptr;
+
+	clBuffer* m_clPositionBuffer = nullptr;
+	clBuffer* m_clVelocityBuffer = nullptr;
+
+
+	/*
 	* Average time it takes to process a frame.
 	* For debugging purpose only.
 	*/

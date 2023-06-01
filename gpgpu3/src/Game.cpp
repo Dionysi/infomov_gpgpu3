@@ -276,6 +276,14 @@ Game::Game()
 	m_clProgram = new clProgram(m_clContext, "kernels.cl");
 	m_clQueue = new clCommandQueue(m_clContext, false, true);
 
+	m_clPosKernel = new clKernel(m_clProgram, "update_positions");
+
+	m_clPositionBuffer = new clBuffer(m_clContext, sizeof(float) * 2 * N_PARTICLES, BufferFlags::READ_WRITE);
+	m_clVelocityBuffer = new clBuffer(m_clContext, sizeof(float) * 2 * N_PARTICLES, BufferFlags::READ_WRITE);
+	m_clPosKernel->SetArgument(1, m_clPositionBuffer);
+	m_clPosKernel->SetArgument(2, m_clVelocityBuffer);
+
+
 	// Resize the window.
 	Application::SetWindowSize(1024, 1024, true);
 
@@ -315,12 +323,19 @@ void Game::Tick(float dt)
 	// Apply forces based on user input.
 	HandleUserInput(dt);
 
+	// Copy velocities and positions to the device.
+	m_clPositionBuffer->CopyToDevice(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
+	m_clVelocityBuffer->CopyToDevice(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, false);
+	// Set the delta time argument for the kernel.
+	m_clPosKernel->SetArgument(0, &dt, sizeof(float));
+	// Enqueue the kernel for execution (no need to synchronize because of the copy.
+	m_clPosKernel->Enqueue(m_clQueue, N_PARTICLES, 1024);
+	// Copy result back to host.
+	m_clPositionBuffer->CopyToHost(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, true);
+
 	// Update positions and heck collision with screen boundaries.
 	for (int i = 0; i < N_PARTICLES; i++)
 	{
-		// Update particle position.
-		m_Positions[i] += m_Velocities[i] * dt;
-
 		// Check if outside of boundary.
 		if (m_Positions[i].x - m_Radii[i] < 0.0f) m_Positions[i].x = m_Radii[i], m_Velocities[i].x *= -1.0f;
 		if (m_Positions[i].y - m_Radii[i] < 0.0f) m_Positions[i].y = m_Radii[i], m_Velocities[i].y *= -1.0f;
