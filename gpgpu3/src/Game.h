@@ -1,9 +1,9 @@
 #pragma once
 #include "Template/Application.h"
 
-#define N_PARTICLES					10000			// Number of particles in simulation.
+#define N_PARTICLES					1024 * 8		// Number of particles in simulation.
 #define GRID_RESOLUTION				128				// Divide the particle area in 128 * 128 cells.
-#define CELL_CAPACITY				1024				// Maximum number of particles that we can store per cell.
+#define CELL_CAPACITY				1024			// Maximum number of particles that we can store per cell.
 
 
 struct Particle
