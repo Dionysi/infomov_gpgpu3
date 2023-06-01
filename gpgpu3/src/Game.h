@@ -5,7 +5,7 @@
 #define GRID_RESOLUTION				128				// Divide the particle area in 128 * 128 cells.
 #define CELL_CAPACITY				1024			// Maximum number of particles that we can store per cell.
 
-
+/* We do not delete this just as a reference. */
 struct Particle
 {
 
@@ -54,10 +54,12 @@ private:
 	*/
 	uint* m_Grid = new uint[GRID_RESOLUTION * GRID_RESOLUTION * CELL_CAPACITY];
 
-	/*
-	* Particle data.
-	*/
-	Particle m_Particles[N_PARTICLES];
+	/* Convert Array of Structure to Structure of Arrays. */
+	glm::vec2 m_Positions[N_PARTICLES];
+	glm::vec2 m_Velocities[N_PARTICLES];
+	float m_Radii[N_PARTICLES];
+	float m_Masses[N_PARTICLES];
+	uint m_Colors[N_PARTICLES];
 
 	/*
 	* Fill the particle grid.
@@ -76,16 +78,16 @@ private:
 	/*
 	* Checks if two particles collide.
 	*/
-	bool CheckCollision(const Particle& p1, const Particle& p2, float dt);
+	bool CheckCollision(uint p1, uint p2, float dt);
 	/*
 	* Resolve collision between two particles.
 	*/
-	void ResolveCollision(Particle& p1, Particle& p2);
+	void ResolveCollision(uint p1, uint p2);
 
 	/*
 	* Draws a particle on the screen.
 	*/
-	void DrawParticle(Particle& p);
+	void DrawParticle(uint p);
 
 public:
 	/*

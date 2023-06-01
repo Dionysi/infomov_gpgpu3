@@ -20,8 +20,8 @@ void Game::UpdateParticleGrid()
 	for (uint i = 0; i < N_PARTICLES; i++)
 	{
 		// Compute particle cell index.
-		uint gx = m_Particles[i].pos.x / cellWidth;
-		uint gy = m_Particles[i].pos.y / cellHeight;
+		uint gx = m_Positions[i].x / cellWidth;
+		uint gy = m_Positions[i].y / cellHeight;
 
 		// Compute cell index.
 		uint cell = (gx + gy * GRID_RESOLUTION) * CELL_CAPACITY;
@@ -51,12 +51,12 @@ void Game::UpdateParticleCollisions(float dt)
 
 			for (int i = 0; i < nParticles; i++)
 			{
-				Particle& p1 = m_Particles[m_Grid[cell + i + 1]];
+				uint p1 = m_Grid[cell + i + 1];
 
 				/* Check for collisions within the cell. */
 				for (int j = i + 1; j < nParticles; j++)
 				{
-					Particle& p2 = m_Particles[m_Grid[cell + j + 1]];
+					uint p2 = m_Grid[cell + j + 1];
 					if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
 				}
 
@@ -66,7 +66,7 @@ void Game::UpdateParticleCollisions(float dt)
 				int nextCell = (x + 1 + y * GRID_RESOLUTION) * CELL_CAPACITY;
 				for (int j = 0; j < m_Grid[nextCell]; j++)
 				{
-					Particle& p2 = m_Particles[m_Grid[nextCell + j + 1]];
+					uint p2 = m_Grid[nextCell + j + 1];
 					if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
 				}
 
@@ -74,7 +74,7 @@ void Game::UpdateParticleCollisions(float dt)
 				nextCell = (x + (y + 1) * GRID_RESOLUTION) * CELL_CAPACITY;
 				for (int j = 0; j < m_Grid[nextCell]; j++)
 				{
-					Particle& p2 = m_Particles[m_Grid[nextCell + j + 1]];
+					uint p2 = m_Grid[nextCell + j + 1];
 					if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
 				}
 
@@ -82,7 +82,7 @@ void Game::UpdateParticleCollisions(float dt)
 				nextCell = (x + 1 + (y + 1) * GRID_RESOLUTION) * CELL_CAPACITY;
 				for (int j = 0; j < m_Grid[nextCell]; j++)
 				{
-					Particle& p2 = m_Particles[m_Grid[nextCell + j + 1]];
+					uint p2 = m_Grid[nextCell + j + 1];
 					if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
 				}
 			}
@@ -97,12 +97,12 @@ void Game::UpdateParticleCollisions(float dt)
 		// Check for collision cell below.
 		for (int i = 0; i < nParticles; i++)
 		{
-			Particle& p1 = m_Particles[m_Grid[cell + i + 1]];
+			uint p1 = m_Grid[cell + i + 1];
 
 			/* Check for collisions within the cell. */
 			for (int j = i + 1; j < nParticles; j++)
 			{
-				Particle& p2 = m_Particles[m_Grid[cell + j + 1]];
+				uint p2 = m_Grid[cell + j + 1];
 				if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
 			}
 
@@ -110,7 +110,7 @@ void Game::UpdateParticleCollisions(float dt)
 			int nextCell = (0 + (y + 1) * GRID_RESOLUTION) * CELL_CAPACITY;
 			for (int j = 1; j < m_Grid[nextCell]; j++)
 			{
-				Particle& p2 = m_Particles[m_Grid[nextCell + j + 1]];
+				uint p2 = m_Grid[nextCell + j + 1];
 				if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
 			}
 		}
@@ -125,18 +125,18 @@ void Game::UpdateParticleCollisions(float dt)
 		// Check for collision cell below.
 		for (int i = 0; i < nParticles; i++)
 		{
-			Particle& p1 = m_Particles[m_Grid[cell + i + 1]];
+			uint p1 = m_Grid[cell + i + 1];
 			/* Check for collisions within the cell. */
 			for (int j = i + 1; j < nParticles; j++)
 			{
-				Particle& p2 = m_Particles[m_Grid[cell + j + 1]];
+				uint p2 = m_Grid[cell + j + 1];
 				if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
 			}
 			/* Check for collisions with cell to the right. */
 			int nextCell = (x + 1 + (GRID_RESOLUTION - 1) * GRID_RESOLUTION) * CELL_CAPACITY;
 			for (int j = 1; j < m_Grid[nextCell]; j++)
 			{
-				Particle& p2 = m_Particles[m_Grid[nextCell + j + 1]];
+				uint p2 = m_Grid[nextCell + j + 1];
 				if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
 			}
 		}
@@ -176,8 +176,10 @@ void Game::HandleUserInput(float dt)
 
 				for (uint i = 0; i < nParticles; i++)
 				{
-					Particle& p = m_Particles[m_Grid[cell + i + 1]];
-					glm::vec2 diff = p.pos - cursorPos;
+					uint pidx = m_Grid[cell + i + 1];
+
+
+					glm::vec2 diff = m_Positions[pidx] - cursorPos;
 					float sqrdlength = glm::length2(diff);
 
 					// If we happen to exactly click on a particle, ignore it.
@@ -185,33 +187,33 @@ void Game::HandleUserInput(float dt)
 
 					// Apply forces based on reciprocal distance.
 					float force = 25.0f * 128.0f * 128.0f / sqrdlength;
-					p.velocity += force * diff * dt;
+					m_Velocities[pidx] += force * diff * dt;
 
-					float speed = glm::length(p.velocity);
-					if (speed > MAX_SPEED) p.velocity = (p.velocity / speed) * MAX_SPEED;
+					float speed = glm::length(m_Velocities[pidx]);
+					if (speed > MAX_SPEED) m_Velocities[pidx] = (m_Velocities[pidx] / speed) * MAX_SPEED;
 				}
 			}
 
 	}
 }
 
-bool Game::CheckCollision(const Particle& p1, const Particle& p2, float dt)
+bool Game::CheckCollision(uint p1, uint p2, float dt)
 {
-	glm::vec2 p1NextPos = p1.pos + p1.velocity * dt;
-	glm::vec2 p2NextPos = p2.pos + p2.velocity * dt;
+	glm::vec2 p1NextPos = m_Positions[p1] + m_Velocities[p1] * dt;
+	glm::vec2 p2NextPos = m_Positions[p2] + m_Velocities[p2] * dt;
 
 	float distSquared = glm::length2(p1NextPos - p2NextPos);
 
-	return distSquared <= (p1.radius + p2.radius) * (p1.radius + p2.radius);
+	return distSquared <= (m_Radii[p1] + m_Radii[p2]) * (m_Radii[p1] + m_Radii[p2]);
 }
 
-void Game::ResolveCollision(Particle& p1, Particle& p2)
+void Game::ResolveCollision(uint p1, uint p2)
 {
 	// Normal
-	glm::vec2 normal = glm::normalize(p2.pos - p1.pos);
+	glm::vec2 normal = glm::normalize(m_Positions[p2] - m_Positions[p1]);
 
 	// Relative velocity
-	glm::vec2 rv = p2.velocity - p1.velocity;
+	glm::vec2 rv = m_Velocities[p2] - m_Velocities[p1];
 
 	// Velocity along the normal
 	float velAlongNormal = glm::dot(rv, normal);
@@ -221,30 +223,30 @@ void Game::ResolveCollision(Particle& p1, Particle& p2)
 
 	// Calculate impulse scalar
 	float j = -(1.0f + RESTITUTION) * velAlongNormal;
-	j /= 1 / p1.mass + 1 / p2.mass;
+	j /= 1 / m_Masses[p1] + 1 / m_Masses[p2];
 
 	// Apply impulse
 	glm::vec2 impulse = j * normal;
-	p1.velocity -= (1.0f / p1.mass) * impulse;
-	p2.velocity += (1.0f / p2.mass) * impulse;
+	m_Velocities[p1] -= (1.0f / m_Masses[p1]) * impulse;
+	m_Velocities[p2] += (1.0f / m_Masses[p2]) * impulse;
 
 	// Cap velocity at a maximum speed.
-	float p1speed = glm::length(p1.velocity);
-	float p2speed = glm::length(p2.velocity);
+	float p1speed = glm::length(m_Velocities[p1]);
+	float p2speed = glm::length(m_Velocities[p2]);
 
 	// Calculate overlap
-	float overlap = (p1.radius + p2.radius) - glm::length(p1.pos - p2.pos);
+	float overlap = (m_Radii[p1] + m_Radii[p2]) - glm::length(m_Positions[p1]  - m_Positions[p2]);
 
 	// Correct positions.
-	p1.pos -= overlap * 0.5f * normal;
-	p2.pos += overlap * 0.5f * normal;
+	m_Positions[p1] -= overlap * 0.5f * normal;
+	m_Positions[p2]  += overlap * 0.5f * normal;
 }
 
-void Game::DrawParticle(Particle& p)
+void Game::DrawParticle(uint p)
 {
-	int radius = (int)p.radius;
+	int radius = (int)m_Radii[p];
 	int radSquared = radius * radius;
-	int cx = (int)p.pos.x, cy = (int)p.pos.y;
+	int cx = (int)m_Positions[p].x, cy = (int)m_Positions[p].y;
 
 	int yStart = glm::max(cy - radius, 0);
 	int yEnd = glm::min((int)Application::RenderHeight() - 1, cy + radius);
@@ -252,7 +254,7 @@ void Game::DrawParticle(Particle& p)
 	int xEnd = glm::min((int)Application::RenderWidth() - 1, cx + radius);
 
 	// Particle speed.
-	glm::vec2 direction = glm::normalize(p.velocity);
+	glm::vec2 direction = glm::normalize(m_Velocities[p]);
 	uint color = 0x000000FF | ((uint)(direction.x * 127.0f + 128.0f) << 24) | ((uint)(direction.y * 127.0f + 128.0f) << 16);
 
 	// Iterate over pixels and draw the circle.
@@ -285,13 +287,11 @@ Game::Game()
 	{
 		float rrandmax = 1.0f / (float)RAND_MAX;
 
-		glm::vec2 pos = glm::vec2(rand() % Application::RenderWidth(), rand() % Application::RenderHeight());
-		glm::vec2 vel = glm::vec2((float)rand() * rrandmax - 0.5f, (float)rand() * rrandmax - 0.5f) * SPEED_MOD * 2.0f;
-		float radius = 6.0f + 3.0f * (float)rand() * rrandmax;
-		float mass = radius * 4.0f;
-		uint color = (rand() % 255 << 24) | (rand() % 255 << 16) | (rand() % 255 << 8) | 255u;
-
-		m_Particles[i] = { pos, vel, mass, radius, color };
+		m_Positions[i] = glm::vec2(rand() % Application::RenderWidth(), rand() % Application::RenderHeight());
+		m_Velocities[i] = glm::vec2((float)rand() * rrandmax - 0.5f, (float)rand() * rrandmax - 0.5f) * SPEED_MOD * 2.0f;
+		m_Radii[i] = 6.0f + 3.0f * (float)rand() * rrandmax;
+		m_Masses[i] = m_Radii[i] * 4.0f;
+		m_Colors[i] = (rand() % 255 << 24) | (rand() % 255 << 16) | (rand() % 255 << 8) | 255u;
 	}
 
 }
@@ -318,16 +318,14 @@ void Game::Tick(float dt)
 	// Update positions and heck collision with screen boundaries.
 	for (int i = 0; i < N_PARTICLES; i++)
 	{
-		Particle& p = m_Particles[i];
-
 		// Update particle position.
-		p.pos += p.velocity * dt;
+		m_Positions[i] += m_Velocities[i] * dt;
 
 		// Check if outside of boundary.
-		if (p.pos.x - p.radius < 0.0f) p.pos.x = p.radius, p.velocity.x *= -1.0f;
-		if (p.pos.y - p.radius < 0.0f) p.pos.y = p.radius, p.velocity.y *= -1.0f;
-		if (p.pos.x + p.radius >= Application::RenderWidth()) p.pos.x = Application::RenderWidth() - p.radius - 1.0f, p.velocity.x *= -1.0f;
-		if (p.pos.y + p.radius >= Application::RenderHeight()) p.pos.y = Application::RenderHeight() - p.radius - 1.0f, p.velocity.y *= -1.0f;
+		if (m_Positions[i].x - m_Radii[i] < 0.0f) m_Positions[i].x = m_Radii[i], m_Velocities[i].x *= -1.0f;
+		if (m_Positions[i].y - m_Radii[i] < 0.0f) m_Positions[i].y = m_Radii[i], m_Velocities[i].y *= -1.0f;
+		if (m_Positions[i].x + m_Radii[i] >= Application::RenderWidth()) m_Positions[i].x = Application::RenderWidth() - m_Radii[i] - 1.0f, m_Velocities[i].x *= -1.0f;
+		if (m_Positions[i].y + m_Radii[i] >= Application::RenderHeight()) m_Positions[i].y = Application::RenderHeight() - m_Radii[i] - 1.0f, m_Velocities[i].y *= -1.0f;
 	}
 }
 
@@ -337,7 +335,7 @@ void Game::Draw(float dt)
 	Application::Screen()->Clear();
 	// Render the particles.
 
-	for (int i = 0; i < N_PARTICLES; i++) DrawParticle(m_Particles[i]);
+	for (uint i = 0; i < N_PARTICLES; i++) DrawParticle(i);
 
 	Application::Screen()->SyncPixels();
 }
