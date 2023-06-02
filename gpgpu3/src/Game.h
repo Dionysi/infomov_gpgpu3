@@ -34,9 +34,24 @@ private:
 	*/
 	clKernel* m_clPosKernel = nullptr;
 
+	/*
+	* Kernel for resetting the grid cell counters.
+	*/
+	clKernel* m_clResetGridKernel = nullptr;
+	/*
+	* Kernel for filling the grid.
+	*/
+	clKernel* m_clBuildGridKernel = nullptr;
+	/*
+	* Kernel for fixing the cell counters.
+	*/
+	clKernel* m_clFixCountersGridKernel = nullptr;
+
 	clBuffer* m_clPositionBuffer = nullptr;
 	clBuffer* m_clVelocityBuffer = nullptr;
 	clBuffer* m_clRadiiBuffer = nullptr;
+
+	clBuffer* m_clGridBuffer = nullptr;
 
 
 	/*

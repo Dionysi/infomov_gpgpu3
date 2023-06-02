@@ -7,6 +7,8 @@
 #define SPEED_MOD 100.0f
 #define MAX_SPEED 256.0f
 
+#define GPU
+
 void Game::UpdateParticleGrid()
 {
 	// Reset counters to zero.
@@ -276,17 +278,43 @@ Game::Game()
 	m_clProgram = new clProgram(m_clContext, "kernels.cl");
 	m_clQueue = new clCommandQueue(m_clContext, false, true);
 
-	m_clPosKernel = new clKernel(m_clProgram, "update_positions");
 
+	// Velocities and positions buffer.
 	m_clPositionBuffer = new clBuffer(m_clContext, sizeof(float) * 2 * N_PARTICLES, BufferFlags::READ_WRITE);
 	m_clVelocityBuffer = new clBuffer(m_clContext, sizeof(float) * 2 * N_PARTICLES, BufferFlags::READ_WRITE);
-
+	// Radii buffer.
 	m_clRadiiBuffer = new clBuffer(m_clContext, sizeof(float) * N_PARTICLES, BufferFlags::READ_ONLY);
 	m_clRadiiBuffer->CopyToDevice(m_clQueue, m_Radii, true);
+	// Grid buffer.
+	m_clGridBuffer = new clBuffer(m_clContext, sizeof(unsigned int) * GRID_RESOLUTION * GRID_RESOLUTION * CELL_CAPACITY, BufferFlags::READ_WRITE);
 
+	m_clPosKernel = new clKernel(m_clProgram, "update_positions");
 	m_clPosKernel->SetArgument(2, m_clPositionBuffer);
 	m_clPosKernel->SetArgument(3, m_clVelocityBuffer);
 	m_clPosKernel->SetArgument(4, m_clRadiiBuffer);
+
+	int resolution = GRID_RESOLUTION;
+	int capacity = CELL_CAPACITY;
+	m_clResetGridKernel = new clKernel(m_clProgram, "reset_grid");
+	m_clResetGridKernel->SetArgument(0, &resolution, sizeof(int));
+	m_clResetGridKernel->SetArgument(1, &capacity, sizeof(int));
+	m_clResetGridKernel->SetArgument(2, m_clGridBuffer);
+
+	int cellwidth = Application::RenderWidth() / GRID_RESOLUTION;;
+	int cellheight = Application::RenderHeight() / GRID_RESOLUTION;;
+	m_clBuildGridKernel = new clKernel(m_clProgram, "build_grid");
+	m_clBuildGridKernel->SetArgument(0, &resolution, sizeof(int));
+	m_clBuildGridKernel->SetArgument(1, &capacity, sizeof(int));
+	m_clBuildGridKernel->SetArgument(2, &cellwidth, sizeof(int));
+	m_clBuildGridKernel->SetArgument(3, &cellheight, sizeof(int));
+	m_clBuildGridKernel->SetArgument(4, m_clPositionBuffer);
+	m_clBuildGridKernel->SetArgument(5, m_clGridBuffer);
+
+	m_clFixCountersGridKernel = new clKernel(m_clProgram, "fix_counters");
+	m_clFixCountersGridKernel->SetArgument(0, &resolution, sizeof(int));
+	m_clFixCountersGridKernel->SetArgument(1, &capacity, sizeof(int));
+	m_clFixCountersGridKernel->SetArgument(2, m_clGridBuffer);
+
 
 	// Set the screen boundaries.
 	glm::vec2 screenBoundaries(Application::RenderWidth(), Application::RenderHeight());
@@ -316,6 +344,17 @@ Game::Game()
 Game::~Game()
 {
 
+	// Clean opencl objects.
+	delete m_clGridBuffer;
+	delete m_clPositionBuffer;
+	delete m_clVelocityBuffer;
+	delete m_clRadiiBuffer;
+
+	delete m_clPosKernel;
+	delete m_clBuildGridKernel;
+
+	delete m_clQueue;
+	delete m_clProgram;
 	delete m_clContext;
 }
 
@@ -325,7 +364,19 @@ void Game::Tick(float dt)
 	m_AvgFrameTime = 0.99f * m_AvgFrameTime + 0.01 * dt;
 
 	// Build the particle grid.
+#ifndef GPU
 	UpdateParticleGrid();
+#else
+	size_t globalSize[2] = { GRID_RESOLUTION, GRID_RESOLUTION };
+	size_t localSize[2] = { 32, 32 };
+	m_clResetGridKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
+	m_clBuildGridKernel->Enqueue(m_clQueue, N_PARTICLES, 1024);
+	m_clFixCountersGridKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
+	m_clGridBuffer->CopyToHost(m_clQueue, m_Grid, true); // Functions as our synchronization point.
+#endif
+
+
+
 	// Handle collisions using the grid.
 	UpdateParticleCollisions(dt);
 

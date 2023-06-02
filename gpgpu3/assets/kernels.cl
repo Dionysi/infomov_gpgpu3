@@ -1,5 +1,6 @@
 
-// Update the particle positions.
+/* Updating the particles positions. */
+
 __kernel void update_positions
     (
         float dt, float2 bounds,
@@ -16,11 +17,45 @@ __kernel void update_positions
 	if (positions[idx].y + radii[idx] >= bounds.y) positions[idx].y = bounds.y - radii[idx] - 1.0f, velocities[idx].y *= -1.0f;
 }
 
+
+/* Building the grid kernels. */
+
+__kernel void reset_grid(int resolution, int capacity, __global unsigned int* grid)
+{
+    int x = get_global_id( 0 );
+    int y = get_global_id( 1 );
+    
+    grid[(x + y * resolution) * capacity] = 0;
+}
+
 __kernel void build_grid
     (
-        int resolution, int capacity,
-        __global float2* positions, __global unsigned int* grid
+        int resolution, int capacity, int cellwidth, int cellheight,
+        __global float2* positions, __global volatile unsigned int* grid
     )
 {
+    int idx = get_global_id( 0 );
 
+    // Convert particle position to cell coordinates.
+    int gx = positions[idx].x / cellwidth;
+    int gy = positions[idx].y / cellheight;
+
+    // Compute cell index.
+    int cell = (gx + gy * resolution) * capacity;
+
+    // Check if there is still any space left in the cell to place the particle.
+    // Here we must use atomic operations to avoid racing conditions.
+    int count = atomic_inc(&grid[cell]);
+    if (count < capacity - 1) grid[cell + count + 1] = idx; 
+
+    // NOTE! The counters can now exceed the capacity. We should fix this in another kernel!
+}
+
+__kernel void fix_counters(int resolution, int capacity, __global unsigned int* grid)
+{
+    int x = get_global_id( 0 );
+    int y = get_global_id( 1 );
+    
+    int idx = (x + y * resolution) * capacity;
+    grid[idx] = min(grid[idx], (unsigned int)capacity - 1);
 }
