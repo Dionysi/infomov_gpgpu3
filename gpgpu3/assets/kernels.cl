@@ -15,3 +15,12 @@ __kernel void update_positions
 	if (positions[idx].x + radii[idx] >= bounds.x) positions[idx].x = bounds.x - radii[idx] - 1.0f, velocities[idx].x *= -1.0f;
 	if (positions[idx].y + radii[idx] >= bounds.y) positions[idx].y = bounds.y - radii[idx] - 1.0f, velocities[idx].y *= -1.0f;
 }
+
+__kernel void build_grid
+    (
+        int resolution, int capacity,
+        __global float2* positions, __global unsigned int* grid
+    )
+{
+
+}
