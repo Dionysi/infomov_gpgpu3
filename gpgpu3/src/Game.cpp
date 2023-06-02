@@ -272,6 +272,25 @@ void Game::DrawParticle(uint p)
 
 Game::Game()
 {
+	// Resize the window.
+	Application::SetWindowSize(1024, 1024, true);
+
+	// Initialize seed for deterministic sim.
+	srand(0);
+
+	// Assign particles in the simulation random positions.
+	for (size_t i = 0; i < N_PARTICLES; i++)
+	{
+		float rrandmax = 1.0f / (float)RAND_MAX;
+
+		m_Positions[i] = glm::vec2(rand() % Application::RenderWidth(), rand() % Application::RenderHeight());
+		m_Velocities[i] = glm::vec2((float)rand() * rrandmax - 0.5f, (float)rand() * rrandmax - 0.5f) * SPEED_MOD * 2.0f;
+		m_Radii[i] = 6.0f + 3.0f * (float)rand() * rrandmax;
+		m_Masses[i] = m_Radii[i] * 4.0f;
+		m_Colors[i] = (rand() % 255 << 24) | (rand() % 255 << 16) | (rand() % 255 << 8) | 255u;
+	}
+
+
 	// Initialize opencl.
 	m_clContext = new clContext(true);
 	m_clProgram = new clProgram(m_clContext, "kernels.cl");
@@ -281,9 +300,14 @@ Game::Game()
 	// Velocities and positions buffer.
 	m_clPositionBuffer = new clBuffer(m_clContext, sizeof(float) * 2 * N_PARTICLES, BufferFlags::READ_WRITE);
 	m_clVelocityBuffer = new clBuffer(m_clContext, sizeof(float) * 2 * N_PARTICLES, BufferFlags::READ_WRITE);
+	m_clPositionBuffer->CopyToDevice(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
+	m_clVelocityBuffer->CopyToDevice(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, false);
 	// Radii buffer.
 	m_clRadiiBuffer = new clBuffer(m_clContext, sizeof(float) * N_PARTICLES, BufferFlags::READ_ONLY);
 	m_clRadiiBuffer->CopyToDevice(m_clQueue, m_Radii, true);
+	// Mass buffer.
+	m_clMassBuffer = new clBuffer(m_clContext, sizeof(float) * N_PARTICLES, BufferFlags::READ_ONLY);
+	m_clMassBuffer->CopyToDevice(m_clQueue, m_Masses, true);
 	// Grid buffer.
 	m_clGridBuffer = new clBuffer(m_clContext, sizeof(unsigned int) * GRID_RESOLUTION * GRID_RESOLUTION * CELL_CAPACITY, BufferFlags::READ_WRITE);
 
@@ -320,30 +344,18 @@ Game::Game()
 	m_clInputKernel->SetArgument(3, m_clPositionBuffer);
 	m_clInputKernel->SetArgument(4, m_clVelocityBuffer);
 
+	m_clWithinCollisionKernel = new clKernel(m_clProgram, "handle_collisions_within");
+	m_clWithinCollisionKernel->SetArgument(1, &resolution, sizeof(int));
+	m_clWithinCollisionKernel->SetArgument(2, &capacity, sizeof(int));
+	m_clWithinCollisionKernel->SetArgument(3, m_clPositionBuffer);
+	m_clWithinCollisionKernel->SetArgument(4, m_clVelocityBuffer);
+	m_clWithinCollisionKernel->SetArgument(5, m_clMassBuffer);
+	m_clWithinCollisionKernel->SetArgument(6, m_clRadiiBuffer);
+	m_clWithinCollisionKernel->SetArgument(7, m_clGridBuffer);
 
 	// Set the screen boundaries.
 	glm::vec2 screenBoundaries(Application::RenderWidth(), Application::RenderHeight());
 	m_clPosKernel->SetArgument(1, &screenBoundaries, sizeof(float) * 2);
-
-
-	// Resize the window.
-	Application::SetWindowSize(1024, 1024, true);
-
-	// Initialize seed for deterministic sim.
-	srand(0);
-
-	// Assign particles in the simulation random positions.
-	for (size_t i = 0; i < N_PARTICLES; i++)
-	{
-		float rrandmax = 1.0f / (float)RAND_MAX;
-
-		m_Positions[i] = glm::vec2(rand() % Application::RenderWidth(), rand() % Application::RenderHeight());
-		m_Velocities[i] = glm::vec2((float)rand() * rrandmax - 0.5f, (float)rand() * rrandmax - 0.5f) * SPEED_MOD * 2.0f;
-		m_Radii[i] = 6.0f + 3.0f * (float)rand() * rrandmax;
-		m_Masses[i] = m_Radii[i] * 4.0f;
-		m_Colors[i] = (rand() % 255 << 24) | (rand() % 255 << 16) | (rand() % 255 << 8) | 255u;
-	}
-
 }
 
 Game::~Game()
@@ -377,13 +389,17 @@ void Game::Tick(float dt)
 	m_clResetGridKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
 	m_clBuildGridKernel->Enqueue(m_clQueue, N_PARTICLES, 1024);
 	m_clFixCountersGridKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
-	m_clGridBuffer->CopyToHost(m_clQueue, m_Grid, true); // Functions as our synchronization point.
+	//m_clGridBuffer->CopyToHost(m_clQueue, m_Grid, true); // Functions as our synchronization point.
 #endif
 
-
-
+#ifndef GPU
 	// Handle collisions using the grid.
 	UpdateParticleCollisions(dt);
+#else
+	m_clWithinCollisionKernel->SetArgument(0, &dt, sizeof(float));
+	m_clWithinCollisionKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
+
+#endif
 
 	// Apply forces based on user input.
 #ifndef GPU
@@ -391,14 +407,14 @@ void Game::Tick(float dt)
 #else
 	/* NOTE how we moved these from the position update to here! */
 	// Copy velocities and positions to the device.
-	m_clPositionBuffer->CopyToDevice(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
-	m_clVelocityBuffer->CopyToDevice(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, false);
+	//m_clPositionBuffer->CopyToDevice(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
+	//m_clVelocityBuffer->CopyToDevice(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, false);
 
 	if (Input::MouseLeftButtonDown())
 	{
 		glm::ivec2 cpos = Input::CursorPosition();
 		if (cpos.x >= 0 && cpos.y >= 0 && cpos.x < Application::WindowWidth() && cpos.y < Application::WindowHeight())
-		{		
+		{
 			// Convert mouse position to texture position.
 			float xscale = Application::RenderWidth() / Application::WindowWidth();
 			float yscale = Application::RenderHeight() / Application::WindowHeight();
@@ -413,8 +429,8 @@ void Game::Tick(float dt)
 
 #endif
 
-#ifndef GPU
 	// Update positions and heck collision with screen boundaries.
+#ifndef GPU
 	for (int i = 0; i < N_PARTICLES; i++)
 	{
 		// Update positions.
@@ -430,9 +446,12 @@ void Game::Tick(float dt)
 	m_clPosKernel->SetArgument(0, &dt, sizeof(float));
 	// Enqueue the kernel for execution (no need to synchronize because of the copy.
 	m_clPosKernel->Enqueue(m_clQueue, N_PARTICLES, 1024);
+
+	m_clQueue->Synchronize();
+
 	// Copy result back to host.
-	m_clPositionBuffer->CopyToHost(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
-	m_clVelocityBuffer->CopyToHost(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, true);
+	//m_clPositionBuffer->CopyToHost(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
+	//m_clVelocityBuffer->CopyToHost(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, true);
 #endif
 }
 
@@ -440,8 +459,10 @@ void Game::Draw(float dt)
 {
 	// Clear the screen.
 	Application::Screen()->Clear();
-	// Render the particles.
+	m_clPositionBuffer->CopyToHost(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
+	m_clVelocityBuffer->CopyToHost(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, true);
 
+	// Render the particles.
 	for (uint i = 0; i < N_PARTICLES; i++) DrawParticle(i);
 
 	Application::Screen()->SyncPixels();

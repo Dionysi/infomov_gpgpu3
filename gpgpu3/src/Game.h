@@ -52,9 +52,15 @@ private:
 	*/
 	clKernel* m_clInputKernel = nullptr;
 
+	/*
+	* Checks collision within a cell.
+	*/
+	clKernel* m_clWithinCollisionKernel = nullptr;
+
 	clBuffer* m_clPositionBuffer = nullptr;
 	clBuffer* m_clVelocityBuffer = nullptr;
 	clBuffer* m_clRadiiBuffer = nullptr;
+	clBuffer* m_clMassBuffer = nullptr;
 
 	clBuffer* m_clGridBuffer = nullptr;
 
