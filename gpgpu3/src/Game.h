@@ -37,6 +37,7 @@ private:
 
 	clBuffer* m_clPositionBuffer = nullptr;
 	clBuffer* m_clVelocityBuffer = nullptr;
+	clBuffer* m_clRadiiBuffer = nullptr;
 
 
 	/*

@@ -280,8 +280,17 @@ Game::Game()
 
 	m_clPositionBuffer = new clBuffer(m_clContext, sizeof(float) * 2 * N_PARTICLES, BufferFlags::READ_WRITE);
 	m_clVelocityBuffer = new clBuffer(m_clContext, sizeof(float) * 2 * N_PARTICLES, BufferFlags::READ_WRITE);
-	m_clPosKernel->SetArgument(1, m_clPositionBuffer);
-	m_clPosKernel->SetArgument(2, m_clVelocityBuffer);
+
+	m_clRadiiBuffer = new clBuffer(m_clContext, sizeof(float) * N_PARTICLES, BufferFlags::READ_ONLY);
+	m_clRadiiBuffer->CopyToDevice(m_clQueue, m_Radii, true);
+
+	m_clPosKernel->SetArgument(2, m_clPositionBuffer);
+	m_clPosKernel->SetArgument(3, m_clVelocityBuffer);
+	m_clPosKernel->SetArgument(4, m_clRadiiBuffer);
+
+	// Set the screen boundaries.
+	glm::vec2 screenBoundaries(Application::RenderWidth(), Application::RenderHeight());
+	m_clPosKernel->SetArgument(1, &screenBoundaries, sizeof(float) * 2);
 
 
 	// Resize the window.
@@ -332,16 +341,8 @@ void Game::Tick(float dt)
 	m_clPosKernel->Enqueue(m_clQueue, N_PARTICLES, 1024);
 	// Copy result back to host.
 	m_clPositionBuffer->CopyToHost(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, true);
+	m_clVelocityBuffer->CopyToHost(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, true);
 
-	// Update positions and heck collision with screen boundaries.
-	for (int i = 0; i < N_PARTICLES; i++)
-	{
-		// Check if outside of boundary.
-		if (m_Positions[i].x - m_Radii[i] < 0.0f) m_Positions[i].x = m_Radii[i], m_Velocities[i].x *= -1.0f;
-		if (m_Positions[i].y - m_Radii[i] < 0.0f) m_Positions[i].y = m_Radii[i], m_Velocities[i].y *= -1.0f;
-		if (m_Positions[i].x + m_Radii[i] >= Application::RenderWidth()) m_Positions[i].x = Application::RenderWidth() - m_Radii[i] - 1.0f, m_Velocities[i].x *= -1.0f;
-		if (m_Positions[i].y + m_Radii[i] >= Application::RenderHeight()) m_Positions[i].y = Application::RenderHeight() - m_Radii[i] - 1.0f, m_Velocities[i].y *= -1.0f;
-	}
 }
 
 void Game::Draw(float dt)
