@@ -47,6 +47,11 @@ private:
 	*/
 	clKernel* m_clFixCountersGridKernel = nullptr;
 
+	/*
+	* Kernel for updating particles according to user input.
+	*/
+	clKernel* m_clInputKernel = nullptr;
+
 	clBuffer* m_clPositionBuffer = nullptr;
 	clBuffer* m_clVelocityBuffer = nullptr;
 	clBuffer* m_clRadiiBuffer = nullptr;

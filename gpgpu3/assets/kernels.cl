@@ -59,3 +59,27 @@ __kernel void fix_counters(int resolution, int capacity, __global unsigned int* 
     int idx = (x + y * resolution) * capacity;
     grid[idx] = min(grid[idx], (unsigned int)capacity - 1);
 }
+
+
+/* User Input */
+
+__kernel void user_input(float dt, float2 cursor, float maxSpeed, __global float2* positions, __global float2* velocities)
+{
+
+    int idx = get_global_id( 0 );
+
+    float2 diff = positions[idx] - cursor;
+    float sqrdLength = diff.x * diff.x + diff.y * diff.y;
+
+    // If we happen to exactly click on a particle, ignore it.
+    if (sqrdLength == 0.0f|| sqrdLength > 128.0f * 128.0f) return;
+
+    // Apply forces based on reciprocal distance.
+    float force = 25.0f * 128.0f * 128.0f / sqrdLength;
+    velocities[idx] += force * diff * dt;
+
+    float speed = length(velocities[idx]);
+    if (speed > maxSpeed) velocities[idx] = (velocities[idx] / speed) * maxSpeed;
+
+}
+

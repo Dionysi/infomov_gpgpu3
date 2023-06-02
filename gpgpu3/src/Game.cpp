@@ -185,7 +185,7 @@ void Game::HandleUserInput(float dt)
 					float sqrdlength = glm::length2(diff);
 
 					// If we happen to exactly click on a particle, ignore it.
-					if (sqrdlength == 0.0f) continue;
+					if (sqrdlength == 0.0f || sqrdlength > 128.0f * 128.0f) continue;
 
 					// Apply forces based on reciprocal distance.
 					float force = 25.0f * 128.0f * 128.0f / sqrdlength;
@@ -237,11 +237,11 @@ void Game::ResolveCollision(uint p1, uint p2)
 	float p2speed = glm::length(m_Velocities[p2]);
 
 	// Calculate overlap
-	float overlap = (m_Radii[p1] + m_Radii[p2]) - glm::length(m_Positions[p1]  - m_Positions[p2]);
+	float overlap = (m_Radii[p1] + m_Radii[p2]) - glm::length(m_Positions[p1] - m_Positions[p2]);
 
 	// Correct positions.
 	m_Positions[p1] -= overlap * 0.5f * normal;
-	m_Positions[p2]  += overlap * 0.5f * normal;
+	m_Positions[p2] += overlap * 0.5f * normal;
 }
 
 void Game::DrawParticle(uint p)
@@ -315,6 +315,12 @@ Game::Game()
 	m_clFixCountersGridKernel->SetArgument(1, &capacity, sizeof(int));
 	m_clFixCountersGridKernel->SetArgument(2, m_clGridBuffer);
 
+	float maxSpeed = MAX_SPEED;
+	m_clInputKernel = new clKernel(m_clProgram, "user_input");
+	m_clInputKernel->SetArgument(2, &maxSpeed, sizeof(float));
+	m_clInputKernel->SetArgument(3, m_clPositionBuffer);
+	m_clInputKernel->SetArgument(4, m_clVelocityBuffer);
+
 
 	// Set the screen boundaries.
 	glm::vec2 screenBoundaries(Application::RenderWidth(), Application::RenderHeight());
@@ -381,7 +387,32 @@ void Game::Tick(float dt)
 	UpdateParticleCollisions(dt);
 
 	// Apply forces based on user input.
+#ifndef GPU
 	HandleUserInput(dt);
+#else
+	/* NOTE how we moved these from the position update to here! */
+	// Copy velocities and positions to the device.
+	m_clPositionBuffer->CopyToDevice(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
+	m_clVelocityBuffer->CopyToDevice(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, false);
+
+	if (Input::MouseLeftButtonDown())
+	{
+		glm::ivec2 cpos = Input::CursorPosition();
+		if (cpos.x >= 0 && cpos.y >= 0 && cpos.x < Application::WindowWidth() && cpos.y < Application::WindowHeight())
+		{		
+			// Convert mouse position to texture position.
+			float xscale = Application::RenderWidth() / Application::WindowWidth();
+			float yscale = Application::RenderHeight() / Application::WindowHeight();
+
+			glm::vec2 cursorPos = glm::vec2(Input::CursorPosition().x, Input::CursorPosition().y) * glm::vec2(xscale, yscale);
+
+			m_clInputKernel->SetArgument(0, &dt, sizeof(float));
+			m_clInputKernel->SetArgument(1, &cursorPos, sizeof(float) * 2);
+			m_clInputKernel->Enqueue(m_clQueue, N_PARTICLES, 1024);
+		}
+	}
+
+#endif
 
 #ifndef GPU
 	// Update positions and heck collision with screen boundaries.
@@ -396,15 +427,12 @@ void Game::Tick(float dt)
 		if (m_Positions[i].y + m_Radii[i] >= Application::RenderHeight()) m_Positions[i].y = Application::RenderHeight() - m_Radii[i] - 1.0f, m_Velocities[i].y *= -1.0f;
 	}
 #else
-	// Copy velocities and positions to the device.
-	m_clPositionBuffer->CopyToDevice(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
-	m_clVelocityBuffer->CopyToDevice(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, false);
 	// Set the delta time argument for the kernel.
 	m_clPosKernel->SetArgument(0, &dt, sizeof(float));
 	// Enqueue the kernel for execution (no need to synchronize because of the copy.
 	m_clPosKernel->Enqueue(m_clQueue, N_PARTICLES, 1024);
 	// Copy result back to host.
-	m_clPositionBuffer->CopyToHost(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, true);
+	m_clPositionBuffer->CopyToHost(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
 	m_clVelocityBuffer->CopyToHost(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, true);
 #endif
 }
