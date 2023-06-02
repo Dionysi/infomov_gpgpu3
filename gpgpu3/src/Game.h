@@ -6,20 +6,6 @@
 #define CELL_CAPACITY				1024			// Maximum number of particles that we can store per cell.
 
 
-struct Particle
-{
-
-	glm::vec2 pos;
-	glm::vec2 velocity;
-
-	float mass;
-	float radius;
-
-	uint color;
-};
->>>>>>> master
-
-
 /*
 * Implement your game logic in this class. The order of function calls is:
 * 1) Tick
