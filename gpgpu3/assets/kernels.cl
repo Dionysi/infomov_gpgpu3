@@ -1,3 +1,4 @@
+#define RESTITUTION 0.9f
 
 /* Updating the particles positions. */
 
@@ -83,3 +84,101 @@ __kernel void user_input(float dt, float2 cursor, float maxSpeed, __global float
 
 }
 
+
+/* Handle collisions */
+
+bool CheckCollisions(unsigned int p1, unsigned int p2, float dt,
+    __global float2* positions, __global float2* velocities, __global float* radii)
+{
+    float2 p1NextPos = positions[p1] + velocities[p1] * dt;
+    float2 p2NextPos = positions[p2] + velocities[p2] * dt;
+    float2 diff = p2NextPos - p1NextPos;
+
+    float distSquared = diff.x * diff.x + diff.y * diff.y;
+
+    return distSquared <= (radii[p1] + radii[p2]) * (radii[p1] + radii[p2]);
+}
+
+void ResolveCollisions(unsigned int p1, unsigned int p2,
+    __global float2* positions, __global float2* velocities, 
+    __global float* radii, __global float* mass)
+{
+    
+    // Normal
+	float2 normal = normalize(positions[p2] - positions[p1]);
+
+	// Relative velocity
+	float2 rv = velocities[p2] - velocities[p1];
+
+	// Velocity along the normal
+	float velAlongNormal = dot(rv, normal);
+
+	// Do not resolve if velocities are separating
+	if (velAlongNormal > 0) return;
+
+	// Calculate impulse scalar
+	float j = -(1.0f + RESTITUTION) * velAlongNormal;
+	j /= 1 / mass[p1] + 1 / mass[p2];
+
+	// Apply impulse
+	float2 impulse = j * normal;
+	velocities[p1] -= (1.0f / mass[p1]) * impulse;
+	velocities[p2] += (1.0f / mass[p2]) * impulse;
+
+	// Cap velocity at a maximum speed.
+	float p1speed = length(velocities[p1]);
+	float p2speed = length(velocities[p2]);
+
+	// Calculate overlap
+	float overlap = (radii[p1] + radii[p2]) - length(positions[p1] - positions[p2]);
+
+	// Correct positions.
+	positions[p1] -= overlap * 0.5f * normal;
+	positions[p2] += overlap * 0.5f * normal;
+
+}
+
+/*
+* Handle particle collisions within a cell.
+*/
+__kernel void handle_collisions_within
+    (
+        // Update every call.
+        float dt,
+        // Set once parameters.
+        int resolution, int capacity,
+        __global float2* positions, __global float2* velocities,
+        __global float* mass, __global float* radii,
+        __global unsigned int* grid
+    )
+{
+
+    // Get id's.
+    int x = get_global_id( 0 );
+    int y = get_global_id( 1 );
+
+    // Cell id.
+    int cell = (x + y * resolution) * capacity;
+
+    // Number of particles in the cell.
+    int n = grid[cell];
+    // No particles.
+    if (n == 0) return;
+
+    // Check for collisions.
+    for (int i = 0; i < n - 1; i++)
+    {
+        // Current particle. 
+        unsigned int p1 = grid[cell + i + 1];
+
+        // Remaining particles.
+        for (int j = i + 1; j < n; j++)
+        {
+            unsigned int p2 = grid[cell + j + 1];
+            if (CheckCollisions(p1, p2, dt, positions, velocities, radii))
+                ResolveCollisions(p1, p2, positions, velocities, radii, mass);
+        }
+    }
+
+
+}
