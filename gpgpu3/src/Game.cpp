@@ -383,6 +383,19 @@ void Game::Tick(float dt)
 	// Apply forces based on user input.
 	HandleUserInput(dt);
 
+#ifndef GPU
+	// Update positions and heck collision with screen boundaries.
+	for (int i = 0; i < N_PARTICLES; i++)
+	{
+		// Update positions.
+		m_Positions[i] += m_Velocities[i] * dt;
+		// Check if outside of boundary.
+		if (m_Positions[i].x - m_Radii[i] < 0.0f) m_Positions[i].x = m_Radii[i], m_Velocities[i].x *= -1.0f;
+		if (m_Positions[i].y - m_Radii[i] < 0.0f) m_Positions[i].y = m_Radii[i], m_Velocities[i].y *= -1.0f;
+		if (m_Positions[i].x + m_Radii[i] >= Application::RenderWidth()) m_Positions[i].x = Application::RenderWidth() - m_Radii[i] - 1.0f, m_Velocities[i].x *= -1.0f;
+		if (m_Positions[i].y + m_Radii[i] >= Application::RenderHeight()) m_Positions[i].y = Application::RenderHeight() - m_Radii[i] - 1.0f, m_Velocities[i].y *= -1.0f;
+	}
+#else
 	// Copy velocities and positions to the device.
 	m_clPositionBuffer->CopyToDevice(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
 	m_clVelocityBuffer->CopyToDevice(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, false);
@@ -393,7 +406,7 @@ void Game::Tick(float dt)
 	// Copy result back to host.
 	m_clPositionBuffer->CopyToHost(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, true);
 	m_clVelocityBuffer->CopyToHost(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, true);
-
+#endif
 }
 
 void Game::Draw(float dt)
