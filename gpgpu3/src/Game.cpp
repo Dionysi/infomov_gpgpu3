@@ -181,7 +181,7 @@ void Game::HandleUserInput(float dt)
 					float sqrdlength = glm::length2(diff);
 
 					// If we happen to exactly click on a particle, ignore it.
-					if (sqrdlength == 0.0f) continue;
+					if (sqrdlength == 0.0f || sqrdlength > 128.0f * 128.0f) continue;
 
 					// Apply forces based on reciprocal distance.
 					float force = 25.0f * 128.0f * 128.0f / sqrdlength;
