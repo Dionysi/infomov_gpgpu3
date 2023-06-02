@@ -180,7 +180,6 @@ void Game::HandleUserInput(float dt)
 				{
 					uint pidx = m_Grid[cell + i + 1];
 
-
 					glm::vec2 diff = m_Positions[pidx] - cursorPos;
 					float sqrdlength = glm::length2(diff);
 
