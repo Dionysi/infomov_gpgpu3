@@ -44,8 +44,8 @@ void Game::UpdateParticleGrid()
 void Game::UpdateParticleCollisions(float dt)
 {
 	// Loop over all cells in the grid (except last row and last column).
-	for (int y = 0; y < GRID_RESOLUTION - 1; y++)
-		for (int x = 0; x < GRID_RESOLUTION - 1; x++)
+	for (int y = 0; y < GRID_RESOLUTION; y++)
+		for (int x = 0; x < GRID_RESOLUTION; x++)
 		{
 			int cell = (x + y * GRID_RESOLUTION) * CELL_CAPACITY;
 			// Number of particles in the cell.
@@ -65,84 +65,50 @@ void Game::UpdateParticleCollisions(float dt)
 				/*  Check for collision with neighbouring cells. */
 
 				// Cell to the right.
-				int nextCell = (x + 1 + y * GRID_RESOLUTION) * CELL_CAPACITY;
-				for (int j = 0; j < m_Grid[nextCell]; j++)
+				if (x < GRID_RESOLUTION - 2)
 				{
-					uint p2 = m_Grid[nextCell + j + 1];
-					if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
+					int nextCell = (x + 1 + y * GRID_RESOLUTION) * CELL_CAPACITY;
+					for (int j = 0; j < m_Grid[nextCell]; j++)
+					{
+						uint p2 = m_Grid[nextCell + j + 1];
+						if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
+					}
 				}
 
 				// Cell below.
-				nextCell = (x + (y + 1) * GRID_RESOLUTION) * CELL_CAPACITY;
-				for (int j = 0; j < m_Grid[nextCell]; j++)
+				if (y < GRID_RESOLUTION - 2)
 				{
-					uint p2 = m_Grid[nextCell + j + 1];
-					if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
+					int nextCell = (x + (y + 1) * GRID_RESOLUTION) * CELL_CAPACITY;
+					for (int j = 0; j < m_Grid[nextCell]; j++)
+					{
+						uint p2 = m_Grid[nextCell + j + 1];
+						if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
+					}
 				}
 
 				// Cell below to the right.
-				nextCell = (x + 1 + (y + 1) * GRID_RESOLUTION) * CELL_CAPACITY;
-				for (int j = 0; j < m_Grid[nextCell]; j++)
+				if (x < GRID_RESOLUTION - 2 && y < GRID_RESOLUTION - 2)
 				{
-					uint p2 = m_Grid[nextCell + j + 1];
-					if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
+					int nextCell = (x + 1 + (y + 1) * GRID_RESOLUTION) * CELL_CAPACITY;
+					for (int j = 0; j < m_Grid[nextCell]; j++)
+					{
+						uint p2 = m_Grid[nextCell + j + 1];
+						if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
+					}
+				}
+
+				// Cell below to the left.
+				if (x > 0 && y < GRID_RESOLUTION - 2)
+				{
+					int nextCell = (x - 1 + (y + 1) * GRID_RESOLUTION) * CELL_CAPACITY;
+					for (int j = 0; j < m_Grid[nextCell]; j++)
+					{
+						uint p2 = m_Grid[nextCell + j + 1];
+						if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
+					}
 				}
 			}
 		}
-
-	// Handle collisions in the last column.
-	for (int y = 0; y < GRID_RESOLUTION - 1; y++)
-	{
-		int cell = (0 + y * GRID_RESOLUTION) * CELL_CAPACITY;
-		// Number of particles in the cell.
-		int nParticles = m_Grid[cell];
-		// Check for collision cell below.
-		for (int i = 0; i < nParticles; i++)
-		{
-			uint p1 = m_Grid[cell + i + 1];
-
-			/* Check for collisions within the cell. */
-			for (int j = i + 1; j < nParticles; j++)
-			{
-				uint p2 = m_Grid[cell + j + 1];
-				if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
-			}
-
-			/* Check for collisions with cell below. */
-			int nextCell = (0 + (y + 1) * GRID_RESOLUTION) * CELL_CAPACITY;
-			for (int j = 1; j < m_Grid[nextCell]; j++)
-			{
-				uint p2 = m_Grid[nextCell + j + 1];
-				if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
-			}
-		}
-	}
-
-	// Handle collisions for the bottom row.
-	for (int x = 0; x < GRID_RESOLUTION - 1; x++)
-	{
-		int cell = (x + (GRID_RESOLUTION - 1) * GRID_RESOLUTION) * CELL_CAPACITY;
-		// Number of particles in the cell.
-		int nParticles = m_Grid[cell];
-		// Check for collision cell below.
-		for (int i = 0; i < nParticles; i++)
-		{
-			uint p1 = m_Grid[cell + i + 1];
-			/* Check for collisions within the cell. */
-			for (int j = i + 1; j < nParticles; j++)
-			{
-				uint p2 = m_Grid[cell + j + 1];
-				if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
-			}
-			/* Check for collisions with cell to the right. */
-			int nextCell = (x + 1 + (GRID_RESOLUTION - 1) * GRID_RESOLUTION) * CELL_CAPACITY;
-			for (int j = 1; j < m_Grid[nextCell]; j++)
-			{
-				uint p2 = m_Grid[nextCell + j + 1];
-				if (CheckCollision(p1, p2, dt)) ResolveCollision(p1, p2);
-			}
-		}
-	}
 }
 
 void Game::HandleUserInput(float dt)
