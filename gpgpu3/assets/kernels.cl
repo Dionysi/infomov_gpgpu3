@@ -280,5 +280,59 @@ __kernel void intersect_diagonal_neighbors
         __global unsigned int* grid
     )
 {
-    
+        // Get id's.
+    int x = get_global_id( 0 );
+    int y = get_global_id( 1 ) * 2 + select(0, 1, even == 0 );
+
+    if (y > resolution - 2) return;
+
+    // Cell id.
+    int cell = (x + y * resolution) * capacity;
+
+    // Number of particles in the cell.
+    int n = grid[cell];
+    // No particles.
+    if (n == 0) return;
+
+    // Check for collisions.
+    for (int i = 0; i < n - 1; i++)
+    {
+        // Current particle. 
+        unsigned int p1 = grid[cell + i + 1];
+
+        // Right diagonal.
+        if (x < resolution - 1)
+        {
+            int neighbor = ((x + 1) + (y + 1) * resolution) * capacity;
+            int nNeighbor = grid[neighbor];
+
+            for (int j = 0; j < nNeighbor; j++)
+            {
+                // find the particle index.
+                unsigned int p2 = grid[neighbor + j + 1];
+                
+                // Check for collisions.
+                if (CheckCollisions(p1, p2, dt, positions, velocities, radii))
+                    ResolveCollisions(p1, p2, positions, velocities, radii, mass);
+            }
+        }
+
+        // Left diagonal.
+        if (x > 0)
+        {
+            int neighbor = ((x - 1) + (y + 1) * resolution) * capacity;
+            int nNeighbor = grid[neighbor];
+
+            for (int j = 0; j < nNeighbor; j++)
+            {
+                // find the particle index.
+                unsigned int p2 = grid[neighbor + j + 1];
+                
+                // Check for collisions.
+                if (CheckCollisions(p1, p2, dt, positions, velocities, radii))
+                    ResolveCollisions(p1, p2, positions, velocities, radii, mass);
+            }
+        }
+       
+    }
 }

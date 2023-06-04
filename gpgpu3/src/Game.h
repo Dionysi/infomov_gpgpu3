@@ -64,6 +64,10 @@ private:
 	* Kernel resolving collisions between vertical cells.
 	*/
 	clKernel* m_clVerticalCollisionsKernel = nullptr;
+	/*
+	* Resolving diagonal collisions.
+	*/
+	clKernel* m_clDiagonalCollisionKernel = nullptr;
 
 	clBuffer* m_clPositionBuffer = nullptr;
 	clBuffer* m_clVelocityBuffer = nullptr;
