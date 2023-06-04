@@ -231,10 +231,6 @@ void Game::ResolveCollision(uint p1, uint p2)
 	m_Velocities[p1] -= (1.0f / m_Masses[p1]) * impulse;
 	m_Velocities[p2] += (1.0f / m_Masses[p2]) * impulse;
 
-	// Cap velocity at a maximum speed.
-	float p1speed = glm::length(m_Velocities[p1]);
-	float p2speed = glm::length(m_Velocities[p2]);
-
 	// Calculate overlap
 	float overlap = (m_Radii[p1] + m_Radii[p2]) - glm::length(m_Positions[p1] - m_Positions[p2]);
 
@@ -353,6 +349,25 @@ Game::Game()
 	m_clWithinCollisionKernel->SetArgument(6, m_clRadiiBuffer);
 	m_clWithinCollisionKernel->SetArgument(7, m_clGridBuffer);
 
+	m_clHorizontalCollisionsKernel = new clKernel(m_clProgram, "intersect_horizontal_neighbors");
+	m_clHorizontalCollisionsKernel->SetArgument(2, &resolution, sizeof(int));
+	m_clHorizontalCollisionsKernel->SetArgument(3, &capacity, sizeof(int));
+	m_clHorizontalCollisionsKernel->SetArgument(4, m_clPositionBuffer);
+	m_clHorizontalCollisionsKernel->SetArgument(5, m_clVelocityBuffer);
+	m_clHorizontalCollisionsKernel->SetArgument(6, m_clMassBuffer);
+	m_clHorizontalCollisionsKernel->SetArgument(7, m_clRadiiBuffer);
+	m_clHorizontalCollisionsKernel->SetArgument(8, m_clGridBuffer);
+
+	m_clVerticalCollisionsKernel = new clKernel(m_clProgram, "intersect_vertical_neighbors");
+	m_clVerticalCollisionsKernel->SetArgument(2, &resolution, sizeof(int));
+	m_clVerticalCollisionsKernel->SetArgument(3, &capacity, sizeof(int));
+	m_clVerticalCollisionsKernel->SetArgument(4, m_clPositionBuffer);
+	m_clVerticalCollisionsKernel->SetArgument(5, m_clVelocityBuffer);
+	m_clVerticalCollisionsKernel->SetArgument(6, m_clMassBuffer);
+	m_clVerticalCollisionsKernel->SetArgument(7, m_clRadiiBuffer);
+	m_clVerticalCollisionsKernel->SetArgument(8, m_clGridBuffer);
+
+
 	// Set the screen boundaries.
 	glm::vec2 screenBoundaries(Application::RenderWidth(), Application::RenderHeight());
 	m_clPosKernel->SetArgument(1, &screenBoundaries, sizeof(float) * 2);
@@ -385,7 +400,7 @@ void Game::Tick(float dt)
 	UpdateParticleGrid();
 #else
 	size_t globalSize[2] = { GRID_RESOLUTION, GRID_RESOLUTION };
-	size_t localSize[2] = { 32, 32 };
+	size_t localSize[2] = { 16, 16 };
 	m_clResetGridKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
 	m_clBuildGridKernel->Enqueue(m_clQueue, N_PARTICLES, 1024);
 	m_clFixCountersGridKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
@@ -396,8 +411,33 @@ void Game::Tick(float dt)
 	// Handle collisions using the grid.
 	UpdateParticleCollisions(dt);
 #else
+	// Within collisions.
 	m_clWithinCollisionKernel->SetArgument(0, &dt, sizeof(float));
 	m_clWithinCollisionKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
+
+
+	/* Horizontal collisions. */
+	size_t horizontalGlobalSize[2] = { GRID_RESOLUTION / 2, GRID_RESOLUTION };
+	int even = 0;
+	m_clHorizontalCollisionsKernel->SetArgument(0, &dt, sizeof(float));
+	m_clHorizontalCollisionsKernel->SetArgument(1, &even, sizeof(int));
+	m_clHorizontalCollisionsKernel->Enqueue(m_clQueue, 2, horizontalGlobalSize, localSize);
+	m_clQueue->Synchronize();
+	even = 1;
+	m_clHorizontalCollisionsKernel->SetArgument(1, &even, sizeof(int));
+	m_clHorizontalCollisionsKernel->Enqueue(m_clQueue, 2, horizontalGlobalSize, localSize);
+
+	/* Vertical collisions. */
+	size_t verticalGlobalSize[2] = { GRID_RESOLUTION, GRID_RESOLUTION / 2};
+	even = false;
+	m_clVerticalCollisionsKernel->SetArgument(0, &dt, sizeof(float));
+	m_clVerticalCollisionsKernel->SetArgument(1, &even, sizeof(int));
+	m_clVerticalCollisionsKernel->Enqueue(m_clQueue, 2, verticalGlobalSize, localSize);
+	m_clQueue->Synchronize();
+	even = true;
+	m_clVerticalCollisionsKernel->SetArgument(1, &even, sizeof(int));
+	m_clVerticalCollisionsKernel->Enqueue(m_clQueue, 2, verticalGlobalSize, localSize);
+
 
 #endif
 
@@ -405,10 +445,6 @@ void Game::Tick(float dt)
 #ifndef GPU
 	HandleUserInput(dt);
 #else
-	/* NOTE how we moved these from the position update to here! */
-	// Copy velocities and positions to the device.
-	//m_clPositionBuffer->CopyToDevice(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
-	//m_clVelocityBuffer->CopyToDevice(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, false);
 
 	if (Input::MouseLeftButtonDown())
 	{
@@ -449,9 +485,6 @@ void Game::Tick(float dt)
 
 	m_clQueue->Synchronize();
 
-	// Copy result back to host.
-	//m_clPositionBuffer->CopyToHost(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
-	//m_clVelocityBuffer->CopyToHost(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, true);
 #endif
 }
 

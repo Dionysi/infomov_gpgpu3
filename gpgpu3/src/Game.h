@@ -56,6 +56,14 @@ private:
 	* Checks collision within a cell.
 	*/
 	clKernel* m_clWithinCollisionKernel = nullptr;
+	/*
+	* Kernel resolving collisions between horizontal cells.
+	*/
+	clKernel* m_clHorizontalCollisionsKernel = nullptr;
+	/*
+	* Kernel resolving collisions between vertical cells.
+	*/
+	clKernel* m_clVerticalCollisionsKernel = nullptr;
 
 	clBuffer* m_clPositionBuffer = nullptr;
 	clBuffer* m_clVelocityBuffer = nullptr;
