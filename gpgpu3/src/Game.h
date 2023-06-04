@@ -69,12 +69,19 @@ private:
 	*/
 	clKernel* m_clDiagonalCollisionKernel = nullptr;
 
+	/*
+	* Renders the pixel to the screen.
+	*/
+	clKernel* m_clRenderKernel = nullptr;
+
 	clBuffer* m_clPositionBuffer = nullptr;
 	clBuffer* m_clVelocityBuffer = nullptr;
 	clBuffer* m_clRadiiBuffer = nullptr;
 	clBuffer* m_clMassBuffer = nullptr;
 
 	clBuffer* m_clGridBuffer = nullptr;
+
+	clBuffer* m_clRenderBuffer = nullptr;
 
 
 	/*

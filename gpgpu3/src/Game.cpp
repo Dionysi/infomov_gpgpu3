@@ -273,11 +273,13 @@ Game::Game()
 	// Grid buffer.
 	m_clGridBuffer = new clBuffer(m_clContext, sizeof(unsigned int) * GRID_RESOLUTION * GRID_RESOLUTION * CELL_CAPACITY, BufferFlags::READ_WRITE);
 
+	/* Positions kernel. */
 	m_clPosKernel = new clKernel(m_clProgram, "update_positions");
 	m_clPosKernel->SetArgument(2, m_clPositionBuffer);
 	m_clPosKernel->SetArgument(3, m_clVelocityBuffer);
 	m_clPosKernel->SetArgument(4, m_clRadiiBuffer);
 
+	/* Grid kernels. */
 	int resolution = GRID_RESOLUTION;
 	int capacity = CELL_CAPACITY;
 	m_clResetGridKernel = new clKernel(m_clProgram, "reset_grid");
@@ -300,12 +302,14 @@ Game::Game()
 	m_clFixCountersGridKernel->SetArgument(1, &capacity, sizeof(int));
 	m_clFixCountersGridKernel->SetArgument(2, m_clGridBuffer);
 
+	/* Input kernel. */
 	float maxSpeed = MAX_SPEED;
 	m_clInputKernel = new clKernel(m_clProgram, "user_input");
 	m_clInputKernel->SetArgument(2, &maxSpeed, sizeof(float));
 	m_clInputKernel->SetArgument(3, m_clPositionBuffer);
 	m_clInputKernel->SetArgument(4, m_clVelocityBuffer);
 
+	/* Collisions kernels. */
 	m_clWithinCollisionKernel = new clKernel(m_clProgram, "handle_collisions_within");
 	m_clWithinCollisionKernel->SetArgument(1, &resolution, sizeof(int));
 	m_clWithinCollisionKernel->SetArgument(2, &capacity, sizeof(int));
@@ -342,6 +346,20 @@ Game::Game()
 	m_clDiagonalCollisionKernel->SetArgument(7, m_clRadiiBuffer);
 	m_clDiagonalCollisionKernel->SetArgument(8, m_clGridBuffer);
 
+	/* Rendering kernel. */
+	m_clRenderBuffer = new clBuffer(m_clContext, Application::Screen()->GetRenderTexture());
+
+	m_clRenderKernel = new clKernel(m_clProgram, "render_particles");
+	m_clRenderKernel->SetArgument(0, &resolution, sizeof(int));
+	m_clRenderKernel->SetArgument(1, &capacity, sizeof(int));
+	m_clRenderKernel->SetArgument(2, &cellwidth, sizeof(int));
+	m_clRenderKernel->SetArgument(3, &cellheight, sizeof(int));
+	m_clRenderKernel->SetArgument(4, m_clPositionBuffer);
+	m_clRenderKernel->SetArgument(5, m_clVelocityBuffer);
+	m_clRenderKernel->SetArgument(6, m_clRadiiBuffer);
+	m_clRenderKernel->SetArgument(7, m_clGridBuffer);
+	m_clRenderKernel->SetArgument(8, m_clRenderBuffer);
+
 
 	// Set the screen boundaries.
 	glm::vec2 screenBoundaries(Application::RenderWidth(), Application::RenderHeight());
@@ -375,7 +393,7 @@ void Game::Tick(float dt)
 	UpdateParticleGrid();
 #else
 	size_t globalSize[2] = { GRID_RESOLUTION, GRID_RESOLUTION };
-	size_t localSize[2] = { 16, 16 };
+	size_t localSize[2] = { 32, 32 };
 	m_clResetGridKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
 	m_clBuildGridKernel->Enqueue(m_clQueue, N_PARTICLES, 1024);
 	m_clFixCountersGridKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
@@ -474,6 +492,8 @@ void Game::Tick(float dt)
 
 void Game::Draw(float dt)
 {
+
+#ifndef GPU
 	// Clear the screen.
 	Application::Screen()->Clear();
 	m_clPositionBuffer->CopyToHost(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
@@ -483,6 +503,14 @@ void Game::Draw(float dt)
 	for (uint i = 0; i < N_PARTICLES; i++) DrawParticle(i);
 
 	Application::Screen()->SyncPixels();
+#else
+	size_t globalSize[2] = { Application::RenderWidth(), Application::RenderHeight() };
+	size_t localSize[2] = { 32, 32 };
+	m_clRenderBuffer->AcquireGLObject(m_clQueue);
+	m_clRenderKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
+	m_clRenderBuffer->ReleaseGLObject(m_clQueue);
+	m_clQueue->Synchronize();
+#endif
 }
 
 void Game::RenderGUI(float dt)

@@ -336,3 +336,68 @@ __kernel void intersect_diagonal_neighbors
        
     }
 }
+
+
+/* Rendering */
+__kernel void render_particles
+    (
+        int resolution, int capacity,
+        int cellwidth, int cellheight,
+        __global float2* positions,
+        __global float2* velocities,
+        __global float* radii,
+        __global unsigned int* grid,
+        __write_only image2d_t texture
+    )
+{
+    int x = get_global_id( 0 );
+    int y = get_global_id( 1 );
+
+    // Get grid-id from global id.
+    int gx = x / cellwidth;
+    int gy = y / cellheight;
+
+    // Check for all neighboring grid cells which particles overlap the pixel.
+    int xmin = max(0, gx - 1), xmax = min(resolution, gx + 1);
+    int ymin = max(0, gy - 1), ymax = min(resolution, gy + 1);
+
+    // Color value.
+    float4 color = (float4)(0.0f, 0.0f, 0.0f, 1.0f);
+
+    for (int dy = ymin; dy < ymax; dy++)
+        for (int dx = xmin; dx < xmax; dx++)
+        {
+            // Compute cell index.
+            int cell = (dx + dy * resolution) * capacity;
+
+            // Number of particles in the cell.
+            int n = grid[cell];
+
+
+            float2 screenpos = (float2)(x, y);
+
+            // Check for each particle in the cell if it overlaps the pixel.
+            for (int i = 0; i < n; i++)
+            {
+                uint p = grid[cell + i + 1];
+                // Check if in range.
+                float2 diff = positions[p] - screenpos;
+
+                if (diff.x * diff.x + diff.y * diff.y < radii[p] * radii[p])
+                {
+                    // Set the color value.
+                    float2 velocity = normalize(velocities[p]);
+                    color = (float4)
+                        (
+                            velocity.x * 0.5f + 0.5f, 
+                            velocity.y * 0.5f + 0.5f, 
+                            0.0f, 
+                            1.0f
+                        );
+                }
+            }
+        }
+
+    // Write pixel to the texture.
+    write_imagef(texture, (int2)(x, y), color);
+}
