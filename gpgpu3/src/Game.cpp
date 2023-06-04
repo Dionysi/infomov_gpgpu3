@@ -333,14 +333,23 @@ Game::Game()
 	m_clVerticalCollisionsKernel->SetArgument(7, m_clRadiiBuffer);
 	m_clVerticalCollisionsKernel->SetArgument(8, m_clGridBuffer);
 
-	m_clDiagonalCollisionKernel = new clKernel(m_clProgram, "intersect_diagonal_neighbors");
-	m_clDiagonalCollisionKernel->SetArgument(2, &resolution, sizeof(int));
-	m_clDiagonalCollisionKernel->SetArgument(3, &capacity, sizeof(int));
-	m_clDiagonalCollisionKernel->SetArgument(4, m_clPositionBuffer);
-	m_clDiagonalCollisionKernel->SetArgument(5, m_clVelocityBuffer);
-	m_clDiagonalCollisionKernel->SetArgument(6, m_clMassBuffer);
-	m_clDiagonalCollisionKernel->SetArgument(7, m_clRadiiBuffer);
-	m_clDiagonalCollisionKernel->SetArgument(8, m_clGridBuffer);
+	m_clDiagonalLeftKernel = new clKernel(m_clProgram, "intersect_diagonal_left_neighbors");
+	m_clDiagonalLeftKernel->SetArgument(2, &resolution, sizeof(int));
+	m_clDiagonalLeftKernel->SetArgument(3, &capacity, sizeof(int));
+	m_clDiagonalLeftKernel->SetArgument(4, m_clPositionBuffer);
+	m_clDiagonalLeftKernel->SetArgument(5, m_clVelocityBuffer);
+	m_clDiagonalLeftKernel->SetArgument(6, m_clMassBuffer);
+	m_clDiagonalLeftKernel->SetArgument(7, m_clRadiiBuffer);
+	m_clDiagonalLeftKernel->SetArgument(8, m_clGridBuffer);
+
+	m_clDiagonalRightKernel = new clKernel(m_clProgram, "intersect_diagonal_right_neighbors");
+	m_clDiagonalRightKernel->SetArgument(2, &resolution, sizeof(int));
+	m_clDiagonalRightKernel->SetArgument(3, &capacity, sizeof(int));
+	m_clDiagonalRightKernel->SetArgument(4, m_clPositionBuffer);
+	m_clDiagonalRightKernel->SetArgument(5, m_clVelocityBuffer);
+	m_clDiagonalRightKernel->SetArgument(6, m_clMassBuffer);
+	m_clDiagonalRightKernel->SetArgument(7, m_clRadiiBuffer);
+	m_clDiagonalRightKernel->SetArgument(8, m_clGridBuffer);
 
 
 	// Set the screen boundaries.
@@ -403,7 +412,7 @@ void Game::Tick(float dt)
 	m_clHorizontalCollisionsKernel->Enqueue(m_clQueue, 2, horizontalGlobalSize, localSize);
 
 	/* Vertical collisions. */
-	size_t verticalGlobalSize[2] = { GRID_RESOLUTION, GRID_RESOLUTION / 2};
+	size_t verticalGlobalSize[2] = { GRID_RESOLUTION, GRID_RESOLUTION / 2 };
 	even = false;
 	m_clVerticalCollisionsKernel->SetArgument(0, &dt, sizeof(float));
 	m_clVerticalCollisionsKernel->SetArgument(1, &even, sizeof(int));
@@ -413,14 +422,24 @@ void Game::Tick(float dt)
 	m_clVerticalCollisionsKernel->SetArgument(1, &even, sizeof(int));
 	m_clVerticalCollisionsKernel->Enqueue(m_clQueue, 2, verticalGlobalSize, localSize);
 
+	/* Diagonal collisions. */
 	even = false;
-	m_clDiagonalCollisionKernel->SetArgument(0, &dt, sizeof(float));
-	m_clDiagonalCollisionKernel->SetArgument(1, &even, sizeof(int));
-	m_clDiagonalCollisionKernel->Enqueue(m_clQueue, 2, verticalGlobalSize, localSize);
+	m_clDiagonalRightKernel->SetArgument(0, &dt, sizeof(float));
+	m_clDiagonalRightKernel->SetArgument(1, &even, sizeof(int));
+	m_clDiagonalRightKernel->Enqueue(m_clQueue, 2, verticalGlobalSize, localSize);
 	m_clQueue->Synchronize();
 	even = true;
-	m_clDiagonalCollisionKernel->SetArgument(1, &even, sizeof(int));
-	m_clDiagonalCollisionKernel->Enqueue(m_clQueue, 2, verticalGlobalSize, localSize);
+	m_clDiagonalRightKernel->SetArgument(1, &even, sizeof(int));
+	m_clDiagonalRightKernel->Enqueue(m_clQueue, 2, verticalGlobalSize, localSize);
+
+	even = false;
+	m_clDiagonalLeftKernel->SetArgument(0, &dt, sizeof(float));
+	m_clDiagonalLeftKernel->SetArgument(1, &even, sizeof(int));
+	m_clDiagonalLeftKernel->Enqueue(m_clQueue, 2, verticalGlobalSize, localSize);
+	m_clQueue->Synchronize();
+	even = true;
+	m_clDiagonalLeftKernel->SetArgument(1, &even, sizeof(int));
+	m_clDiagonalLeftKernel->Enqueue(m_clQueue, 2, verticalGlobalSize, localSize);
 
 
 #endif

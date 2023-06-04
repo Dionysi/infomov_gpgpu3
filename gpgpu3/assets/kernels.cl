@@ -270,7 +270,7 @@ __kernel void intersect_vertical_neighbors
     }
 }
 
-__kernel void intersect_diagonal_neighbors
+__kernel void intersect_diagonal_right_neighbors
     (
         float dt, int even,
         // Set once parameters.
@@ -315,7 +315,39 @@ __kernel void intersect_diagonal_neighbors
                 if (CheckCollisions(p1, p2, dt, positions, velocities, radii))
                     ResolveCollisions(p1, p2, positions, velocities, radii, mass);
             }
-        }
+        }       
+    }
+}
+
+__kernel void intersect_diagonal_left_neighbors
+    (
+        float dt, int even,
+        // Set once parameters.
+        int resolution, int capacity,
+        __global float2* positions, __global float2* velocities,
+        __global float* mass, __global float* radii,
+        __global unsigned int* grid
+    )
+{
+        // Get id's.
+    int x = get_global_id( 0 );
+    int y = get_global_id( 1 ) * 2 + select(0, 1, even == 0 );
+
+    if (y > resolution - 2) return;
+
+    // Cell id.
+    int cell = (x + y * resolution) * capacity;
+
+    // Number of particles in the cell.
+    int n = grid[cell];
+    // No particles.
+    if (n == 0) return;
+
+    // Check for collisions.
+    for (int i = 0; i < n - 1; i++)
+    {
+        // Current particle. 
+        unsigned int p1 = grid[cell + i + 1];
 
         // Left diagonal.
         if (x > 0)

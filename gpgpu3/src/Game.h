@@ -66,8 +66,9 @@ private:
 	clKernel* m_clVerticalCollisionsKernel = nullptr;
 	/*
 	* Resolving diagonal collisions.
-	*/
-	clKernel* m_clDiagonalCollisionKernel = nullptr;
+	*/	
+	clKernel* m_clDiagonalLeftKernel = nullptr;
+	clKernel* m_clDiagonalRightKernel = nullptr;
 
 	clBuffer* m_clPositionBuffer = nullptr;
 	clBuffer* m_clVelocityBuffer = nullptr;
