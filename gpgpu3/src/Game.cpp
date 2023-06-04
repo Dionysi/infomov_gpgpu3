@@ -397,11 +397,11 @@ void Game::Tick(float dt)
 	m_clResetGridKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
 	m_clBuildGridKernel->Enqueue(m_clQueue, N_PARTICLES, 1024);
 	m_clFixCountersGridKernel->Enqueue(m_clQueue, 2, globalSize, localSize);
-	//m_clGridBuffer->CopyToHost(m_clQueue, m_Grid, true); // Functions as our synchronization point.
 #endif
 
-#ifndef GPU
+
 	// Handle collisions using the grid.
+#ifndef GPU
 	UpdateParticleCollisions(dt);
 #else
 	// Within collisions.
@@ -496,8 +496,6 @@ void Game::Draw(float dt)
 #ifndef GPU
 	// Clear the screen.
 	Application::Screen()->Clear();
-	m_clPositionBuffer->CopyToHost(m_clQueue, m_Positions, 0, sizeof(float) * 2 * N_PARTICLES, false);
-	m_clVelocityBuffer->CopyToHost(m_clQueue, m_Velocities, 0, sizeof(float) * 2 * N_PARTICLES, true);
 
 	// Render the particles.
 	for (uint i = 0; i < N_PARTICLES; i++) DrawParticle(i);
